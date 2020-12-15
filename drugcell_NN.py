@@ -166,7 +166,7 @@ class drugcell_nn(nn.Module):
 
                 Tanh_out = torch.tanh(term_NN_out)
                 term_NN_out_map[term] = self._modules[term+'_GO_batchnorm_layer'](Tanh_out)
-                aux_layer1_out = F.tanh(self._modules[term+'_GO_aux_linear_layer1'](term_NN_out_map[term]))
+                aux_layer1_out = torch.tanh(self._modules[term+'_GO_aux_linear_layer1'](term_NN_out_map[term]))
                 aux_out_map[term] = self._modules[term+'_GO_aux_linear_layer2'](aux_layer1_out)        
 
 
@@ -175,19 +175,19 @@ class drugcell_nn(nn.Module):
         drug_out = Variable( cuda_drug_features.cuda(self.CUDA_ID) )
 
         for i in range(1, len(self.num_hiddens_drug)+1, 1):
-            drug_out = self._modules['drug_batchnorm_layer_'+str(i)]( F.tanh(self._modules['drug_linear_layer_' + str(i)](drug_out)))
+            drug_out = self._modules['drug_batchnorm_layer_'+str(i)]( torch.tanh(self._modules['drug_linear_layer_' + str(i)](drug_out)))
             term_NN_out_map['drug_'+str(i)] = drug_out
 
-            aux_layer1_out = F.tanh(self._modules['drug_aux_linear_layer1_'+str(i)](drug_out))
+            aux_layer1_out = torch.tanh(self._modules['drug_aux_linear_layer1_'+str(i)](drug_out))
             aux_out_map['drug_'+str(i)] = self._modules['drug_aux_linear_layer2_'+str(i)](aux_layer1_out)       
 
         # connect two neural networks at the top #################################################
         final_input = torch.cat((term_NN_out_map[self.root], drug_out), 1)
 
-        out = self._modules['final_batchnorm_layer'](F.tanh(self._modules['final_linear_layer'](final_input)))  
+        out = self._modules['final_batchnorm_layer'](torch.tanh(self._modules['final_linear_layer'](final_input)))
         term_NN_out_map['final'] = out
 
-        aux_layer_out = F.tanh(self._modules['final_aux_linear_layer'](out))
+        aux_layer_out = torch.tanh(self._modules['final_aux_linear_layer'](out))
         aux_out_map['final'] = self._modules['final_linear_layer_output'](aux_layer_out)
 
         del drug_out
