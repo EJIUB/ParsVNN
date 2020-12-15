@@ -164,7 +164,7 @@ class drugcell_nn(nn.Module):
 
                 term_NN_out = self._modules[term+'_GO_linear_layer'](child_input)              
 
-                Tanh_out = F.tanh(term_NN_out)
+                Tanh_out = torch.tanh(term_NN_out)
                 term_NN_out_map[term] = self._modules[term+'_GO_batchnorm_layer'](Tanh_out)
                 aux_layer1_out = F.tanh(self._modules[term+'_GO_aux_linear_layer1'](term_NN_out_map[term]))
                 aux_out_map[term] = self._modules[term+'_GO_aux_linear_layer2'](aux_layer1_out)        

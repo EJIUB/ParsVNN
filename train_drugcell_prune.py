@@ -41,7 +41,7 @@ def proximal_l0(yvec, c):
 
 # solution for ||x-y||^2_2 + c||x||_g
 def proximal_glasso_nonoverlap(yvec, c):
-    ynorm = torch.linalg.norm(yvec, ord='fro')
+    ynorm = torch.norm(yvec, p='fro')
     if ynorm > c/2.:
         xvec = (yvec/ynorm)*(ynorm-c/2.)
     else:
@@ -60,19 +60,20 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
             # mutation side
             # l0 for direct edge from gene to term
             param_tmp = param.data - lip*param.grad.data
-            param.data = proximal_l0(param_tmp, reg_l0)
+            param.data = proximal_l0(param_tmp, torch.tensor(reg_l0))
         elif "GO_linear_layer" in name:
             # group lasso for
+            dim = model.num_hiddens_genotype
             term_name = name.split('_')[0]
             child = model.term_neighbor_map[term_name]
             for i in range(len(child)):
-                dim = model.num_hiddens_genotype
+                #dim = model.num_hiddens_genotype
                 term_input = param.data[:,i*dim:(i+1)*dim]
                 term_input_grad = param.grad.data[:,i*dim:(i+1)*dim]
                 term_input_tmp = term_input - lip*term_input_grad
                 term_input_update = proximal_glasso_nonoverlap(term_input_tmp, reg_glasso)
-                param.data[:,i*dim.:(i+1)*dim] = term_input_update
-                num_n0 = torch.count_nonzero(term_input_update)
+                param.data[:,i*dim:(i+1)*dim] = term_input_update
+                num_n0 =  len(torch.nonzero(term_input_update, as_tuple =False)[0])
                 if num_n0 == 0 :
                     dG_prune.remove_edge(term_name, child[i])
             # weight decay for direct
@@ -85,8 +86,9 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
             # other param weigth decay
             param_tmp = param.data - lr*param.grad.data
             param.data = proximal_l2(param_tmp, reg_decay)
-    sub_dG_prune = dG_prune.subgraph(nx.shortest_path(dG_prune.to_undirected(),root))
+    #sub_dG_prune = dG_prune.subgraph(nx.shortest_path(dG_prune.to_undirected(),root))
     print("Original graph has %d nodes and %d edges" % (dG.number_of_nodes(), dG.number_of_edges()))
+    sub_dG_prune = dG_prune.subgraph(nx.shortest_path(dG_prune.to_undirected(),root))
     print("Pruned   graph has %d nodes and %d edges" % (sub_dG_prune.number_of_nodes(), sub_dG_prune.number_of_edges()))
         
 # train a DrugCell model 
@@ -111,11 +113,13 @@ def train_model(root, term_size_map, term_direct_gene_map, dG, train_data, gene_
     # 15) cell_features: a list containing the features of each cell line in tranining data. The index should match with cell2id list.
     # 16) drug_features: a list containing the morgan fingerprint (or other embedding) of each drug in training data. The index should match with drug2id list.
     '''
-
+    #print("Original graph has %d nodes and %d edges" % (dG.number_of_nodes(), dG.number_of_edges()))
     # initialization of variables
     best_model = 0
     #best_model = 0
     max_corr = 0
+    dGc = dG.copy()
+
 
     # dcell neural network
     model = drugcell_nn(term_size_map, term_direct_gene_map, dG, gene_dim, drug_dim, root, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, CUDA_ID)
@@ -194,8 +198,9 @@ def train_model(root, term_size_map, term_direct_gene_map, dG, train_data, gene_
                 term_name = name.split('_')[0]
                 #print(name, param.grad.data.size(), term_mask_map[term_name].size())
                 param.grad.data = torch.mul(param.grad.data, term_mask_map[term_name])
-            
-            optimize_palm(model, dG, root, reg_l0=0.0001, reg_glasso=0.0001, reg_decay=0.0001, lr=0.001, lip=0.001)
+          
+            print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
+            optimize_palm(model, dGc, root, reg_l0=0.0001, reg_glasso=0.0001, reg_decay=0.0001, lr=0.001, lip=0.001)
             #optimizer.step()
             print(i,total_loss)
 
@@ -230,7 +235,7 @@ def train_model(root, term_size_map, term_direct_gene_map, dG, train_data, gene_
             max_corr = test_corr
             best_model = epoch
         
-        torch.save(model, model_save_folder + '/model_final')
+        torch.save(model, model_save_folder + 'prune_final/drugcell_prune_lung_best.pt')
 
         print("Best performed model (epoch)\t%d" % best_model)
 
@@ -277,7 +282,7 @@ drug_dim = len(drug_features[0,:])
 
 # load ontology
 dG, root, term_size_map, term_direct_gene_map = load_ontology(opt.onto, gene2id_mapping)
-
+print("Original graph has %d nodes and %d edges" % (dG.number_of_nodes(), dG.number_of_edges()))
 
 # load the number of hiddens #######
 num_hiddens_genotype = opt.genotype_hiddens
@@ -290,5 +295,5 @@ num_hiddens_final = opt.final_hiddens
 
 CUDA_ID = opt.cuda
 
-
+print(">>>>>>>>>>>>Original graph has %d nodes and %d edges" % (dG.number_of_nodes(), dG.number_of_edges()))
 train_model(root, term_size_map, term_direct_gene_map, dG, train_data, num_genes, drug_dim, opt.modeldir, opt.epoch, opt.batchsize, opt.lr, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, cell_features, drug_features)
