@@ -101,7 +101,7 @@ def training_acc(model, train_loader, train_label_gpu, gene_dim, cuda_cells, dru
         cuda_labels = torch.autograd.Variable(labels.cuda(CUDA_ID))
 
         # Forward + Backward + Optimize
-        optimizer.zero_grad()  # zero the gradient buffer
+        # optimizer.zero_grad()  # zero the gradient buffer
 
         cuda_cell_features = build_input_vector(inputdata.narrow(1, 0, 1).tolist(), gene_dim, cuda_cells)
         cuda_drug_features = build_input_vector(inputdata.narrow(1, 1, 1).tolist(), drug_dim, cuda_drugs)
