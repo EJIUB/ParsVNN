@@ -197,6 +197,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     
     # dcell neural network
     model = drugcell_nn(term_size_map, term_direct_gene_map, dG, gene_dim, drug_dim, root, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, CUDA_ID)
+    print("pruning model")
+    for name, param in model.named_parameters():
+        print(name, param.size()
     # load pretrain model
     if os.path.isfile(pretrained_model):
         print("Pre-trained model exists:" + pretrained_model)
@@ -205,6 +208,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     else:
         print("Pre-trained model does not exist, so before pruning we have to pre-train a model.")
         sys.exit()
+    print("pretrained model")
+    for name, param in model.named_parameters():
+        print(name, param.size()
     #training_acc(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
     test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
     
