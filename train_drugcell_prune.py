@@ -232,7 +232,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         else:
             param.data = param.data * 0.1
 
-    
+    training_acc(model, optimizer, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
 
     for epoch in range(train_epochs):
 
