@@ -221,7 +221,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
 
     
 
-    optimizer.zero_grad()	
+    '''optimizer.zero_grad()
     for name, param in model.named_parameters():
         term_name = name.split('_')[0]
 
@@ -231,9 +231,10 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
 	    #param.data = torch.mul(param.data, term_mask_map[term_name])
         else:
             param.data = param.data * 0.1
+    '''
 
-    training_acc(model, optimizer, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
-    test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
+    #training_acc(model, optimizer, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
+    #test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
 
     for epoch in range(train_epochs):
 
