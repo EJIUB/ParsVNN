@@ -213,7 +213,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     for name, param in model.named_parameters():
         print(name, param.size())
     #training_acc(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
-    test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
+    #test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
     
 
     # load model to GPU
