@@ -73,7 +73,7 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
                 term_input_tmp = term_input - lip*term_input_grad
                 term_input_update = proximal_glasso_nonoverlap(term_input_tmp, reg_glasso)
                 param.data[:,i*dim:(i+1)*dim] = term_input_update
-                num_n0 =  len(torch.nonzero(term_input_update, as_tuple =False)[0])
+                num_n0 =  len(torch.nonzero(term_input_update, as_tuple =False))
                 if num_n0 == 0 :
                     dG_prune.remove_edge(term_name, child[i])
             # weight decay for direct
@@ -92,7 +92,7 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
     print("Pruned   graph has %d nodes and %d edges" % (sub_dG_prune.number_of_nodes(), sub_dG_prune.number_of_edges()))
         
 # train a DrugCell model 
-def train_model(root, term_size_map, term_direct_gene_map, dG, train_data, gene_dim, drug_dim, model_save_folder, train_epochs, batch_size, learning_rate, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, cell_features, drug_features):
+def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG, train_data, gene_dim, drug_dim, model_save_folder, train_epochs, batch_size, learning_rate, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, cell_features, drug_features):
 
     '''
     # arguments:
@@ -123,6 +123,14 @@ def train_model(root, term_size_map, term_direct_gene_map, dG, train_data, gene_
 
     # dcell neural network
     model = drugcell_nn(term_size_map, term_direct_gene_map, dG, gene_dim, drug_dim, root, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, CUDA_ID)
+    # load pretrain model
+    if os.path.isfile(pretrained_model):
+        print("Pre-trained model exists:" + pretrained_model)
+        model.load_state_dict(torch.load(pretrained_model,map_location=torch.device('cuda', CUDA_ID))) #param_file
+        #base_test_acc = test(model,val_loader,device)
+    else:
+        print("Pre-trained model does not exist, so before pruning we have to pre-train a model.")
+        sys.exit()
 
     # separate the whole data into training and test data
     train_feature, train_label, test_feature, test_label = train_data
@@ -199,10 +207,10 @@ def train_model(root, term_size_map, term_direct_gene_map, dG, train_data, gene_
                 #print(name, param.grad.data.size(), term_mask_map[term_name].size())
                 param.grad.data = torch.mul(param.grad.data, term_mask_map[term_name])
           
-            print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
-            optimize_palm(model, dGc, root, reg_l0=0.0001, reg_glasso=0.0001, reg_decay=0.0001, lr=0.001, lip=0.001)
+            #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
+            optimize_palm(model, dGc, root, reg_l0=0.0001, reg_glasso=0.00001, reg_decay=0.00001, lr=0.001, lip=0.001)
             #optimizer.step()
-            print(i,total_loss)
+            print(i,total_loss.item())
 
         train_corr = spearman_corr(train_predict, train_label_gpu)
 
@@ -259,6 +267,7 @@ parser.add_argument('-final_hiddens', help='The number of neurons in the top lay
 
 parser.add_argument('-cellline', help='Mutation information for cell lines', type=str)
 parser.add_argument('-fingerprint', help='Morgan fingerprint representation for drugs', type=str)
+parser.add_argument('-pretrained_model', help='Pre-trained drugcell baseline model', type=str)
 
 print("Start....")
 
@@ -282,7 +291,7 @@ drug_dim = len(drug_features[0,:])
 
 # load ontology
 dG, root, term_size_map, term_direct_gene_map = load_ontology(opt.onto, gene2id_mapping)
-print("Original graph has %d nodes and %d edges" % (dG.number_of_nodes(), dG.number_of_edges()))
+#print("Original graph has %d nodes and %d edges" % (dG.number_of_nodes(), dG.number_of_edges()))
 
 # load the number of hiddens #######
 num_hiddens_genotype = opt.genotype_hiddens
@@ -290,10 +299,13 @@ num_hiddens_genotype = opt.genotype_hiddens
 num_hiddens_drug = list(map(int, opt.drug_hiddens.split(',')))
 
 num_hiddens_final = opt.final_hiddens
-#####################################
+
+# load pretrain model
+pretrained_model = opt.pretrained_model
+######################################
 
 
 CUDA_ID = opt.cuda
 
-print(">>>>>>>>>>>>Original graph has %d nodes and %d edges" % (dG.number_of_nodes(), dG.number_of_edges()))
-train_model(root, term_size_map, term_direct_gene_map, dG, train_data, num_genes, drug_dim, opt.modeldir, opt.epoch, opt.batchsize, opt.lr, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, cell_features, drug_features)
+#print(">>>>>>>>>>>>Original graph has %d nodes and %d edges" % (dG.number_of_nodes(), dG.number_of_edges()))
+train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG, train_data, num_genes, drug_dim, opt.modeldir, opt.epoch, opt.batchsize, opt.lr, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, cell_features, drug_features)
