@@ -92,7 +92,7 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
     print("Pruned   graph has %d nodes and %d edges" % (sub_dG_prune.number_of_nodes(), sub_dG_prune.number_of_edges()))
         
 
-def training_acc(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID):
+def training_acc(model, optimizer, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID):
     #Train
     model.train()
     train_predict = torch.zeros(0,0).cuda(CUDA_ID)
@@ -101,7 +101,7 @@ def training_acc(model, train_loader, train_label_gpu, gene_dim, cuda_cells, dru
         cuda_labels = torch.autograd.Variable(labels.cuda(CUDA_ID))
 
         # Forward + Backward + Optimize
-        # optimizer.zero_grad()  # zero the gradient buffer
+        optimizer.zero_grad()  # zero the gradient buffer
 
         cuda_cell_features = build_input_vector(inputdata.narrow(1, 0, 1).tolist(), gene_dim, cuda_cells)
         cuda_drug_features = build_input_vector(inputdata.narrow(1, 1, 1).tolist(), drug_dim, cuda_drugs)
@@ -197,9 +197,14 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     
     # dcell neural network
     model = drugcell_nn(term_size_map, term_direct_gene_map, dG, gene_dim, drug_dim, root, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, CUDA_ID)
-    print("pruning model")
-    for name, param in model.named_parameters():
-        print(name, param.size())
+    
+    # load model to GPU
+    model.cuda(CUDA_ID)
+
+    # define optimizer
+    # optimize drug NN
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
+    term_mask_map = create_term_mask(model.term_direct_gene_map, gene_dim)
         
     # load pretrain model
     if os.path.isfile(pretrained_model):
@@ -209,20 +214,11 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     else:
         print("Pre-trained model does not exist, so before pruning we have to pre-train a model.")
         sys.exit()
-    print("pretrained model")
-    for name, param in model.named_parameters():
-        print(name, param.size())
-    #training_acc(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
+    training_acc(model, optimizer, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
     #test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
     
 
-    # load model to GPU
-    model.cuda(CUDA_ID)
-
-    # define optimizer
-    # optimize drug NN
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
-    term_mask_map = create_term_mask(model.term_direct_gene_map, gene_dim)
+    
 
     optimizer.zero_grad()	
     for name, param in model.named_parameters():
