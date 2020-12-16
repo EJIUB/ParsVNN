@@ -126,6 +126,29 @@ def training_acc(model, train_loader, train_label_gpu, gene_dim, cuda_cells, dru
         train_corr = spearman_corr(train_predict, train_label_gpu)
         
         print("pretrained model %f total loss, %f training acc" % (total_loss, train_corr))
+        
+        
+def test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID):
+    model.eval()
+        
+    test_predict = torch.zeros(0,0).cuda(CUDA_ID)
+
+    for i, (inputdata, labels) in enumerate(test_loader):
+        # Convert torch tensor to Variable
+        cuda_cell_features = build_input_vector(inputdata.narrow(1, 0, 1).tolist(), gene_dim, cuda_cells)
+        cuda_drug_features = build_input_vector(inputdata.narrow(1, 1, 1).tolist(), drug_dim, cuda_drugs)
+
+
+        aux_out_map, _ = model(cuda_cell_features, cuda_drug_features)
+
+        if test_predict.size()[0] == 0:
+            test_predict = aux_out_map['final'].data
+        else:
+            test_predict = torch.cat([test_predict, aux_out_map['final'].data], dim=0)
+
+    test_corr = spearman_corr(test_predict, test_label_gpu)
+    
+    print("pretrained model %f test acc" % (test_corr))
 
 # train a DrugCell model 
 def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG, train_data, gene_dim, drug_dim, model_save_folder, train_epochs, batch_size, learning_rate, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, cell_features, drug_features):
@@ -182,8 +205,8 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     else:
         print("Pre-trained model does not exist, so before pruning we have to pre-train a model.")
         sys.exit()
-    training_acc(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
-
+    #training_acc(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
+    test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
     
 
     # load model to GPU
