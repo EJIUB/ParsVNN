@@ -105,7 +105,8 @@ def training_acc(model, train_loader, train_label_gpu, gene_dim, cuda_cells, dru
 
         cuda_cell_features = build_input_vector(inputdata.narrow(1, 0, 1).tolist(), gene_dim, cuda_cells)
         cuda_drug_features = build_input_vector(inputdata.narrow(1, 1, 1).tolist(), drug_dim, cuda_drugs)
-
+        
+        print(i)
         # Here term_NN_out_map is a dictionary
         aux_out_map, _ = model(cuda_cell_features, cuda_drug_features)
 
