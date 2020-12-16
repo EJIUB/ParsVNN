@@ -122,10 +122,11 @@ def training_acc(model, optimizer, train_loader, train_label_gpu, gene_dim, cuda
                 total_loss += loss(output, cuda_labels)
             else: # change 0.2 to smaller one for big terms
                 total_loss += 0.2 * loss(output, cuda_labels)
+        print(i, total_loss)
         
-        train_corr = spearman_corr(train_predict, train_label_gpu)
+    train_corr = spearman_corr(train_predict, train_label_gpu)
         
-        print("pretrained model %f total loss, %f training acc" % (total_loss, train_corr))
+    print("pretrained model %f total loss, %f training acc" % (total_loss, train_corr))
         
         
 def test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID):
