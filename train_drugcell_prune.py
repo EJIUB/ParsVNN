@@ -91,6 +91,41 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
     sub_dG_prune = dG_prune.subgraph(nx.shortest_path(dG_prune.to_undirected(),root))
     print("Pruned   graph has %d nodes and %d edges" % (sub_dG_prune.number_of_nodes(), sub_dG_prune.number_of_edges()))
         
+
+def training_acc(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID):
+    #Train
+    model.train()
+    train_predict = torch.zeros(0,0).cuda(CUDA_ID)
+
+    for i, (inputdata, labels) in enumerate(train_loader):
+        cuda_labels = torch.autograd.Variable(labels.cuda(CUDA_ID))
+
+        # Forward + Backward + Optimize
+        optimizer.zero_grad()  # zero the gradient buffer
+
+        cuda_cell_features = build_input_vector(inputdata.narrow(1, 0, 1).tolist(), gene_dim, cuda_cells)
+        cuda_drug_features = build_input_vector(inputdata.narrow(1, 1, 1).tolist(), drug_dim, cuda_drugs)
+
+        # Here term_NN_out_map is a dictionary
+        aux_out_map, _ = model(cuda_cell_features, cuda_drug_features)
+
+        if train_predict.size()[0] == 0:
+            train_predict = aux_out_map['final'].data
+        else:
+            train_predict = torch.cat([train_predict, aux_out_map['final'].data], dim=0)
+
+        total_loss = 0
+        for name, output in aux_out_map.items():
+            loss = nn.MSELoss()
+            if name == 'final':
+                total_loss += loss(output, cuda_labels)
+            else: # change 0.2 to smaller one for big terms
+                total_loss += 0.2 * loss(output, cuda_labels)
+        
+        train_corr = spearman_corr(train_predict, train_label_gpu)
+        
+        print("pretrained model %f total loss, %f training acc" % (total_loss, train_corr))
+
 # train a DrugCell model 
 def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG, train_data, gene_dim, drug_dim, model_save_folder, train_epochs, batch_size, learning_rate, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, cell_features, drug_features):
 
@@ -119,8 +154,23 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     #best_model = 0
     max_corr = 0
     dGc = dG.copy()
+    
+    
+    # separate the whole data into training and test data
+    train_feature, train_label, test_feature, test_label = train_data
 
-
+    # copy labels (observation) to GPU - will be used to
+    train_label_gpu = torch.autograd.Variable(train_label.cuda(CUDA_ID))
+    test_label_gpu = torch.autograd.Variable(test_label.cuda(CUDA_ID))
+    
+    # create dataloader for training/test data
+    train_loader = du.DataLoader(du.TensorDataset(train_feature,train_label), batch_size=batch_size, shuffle=False)
+    test_loader = du.DataLoader(du.TensorDataset(test_feature,test_label), batch_size=batch_size, shuffle=False)
+    
+    # create a torch objects containing input features for cell lines and drugs
+    cuda_cells = torch.from_numpy(cell_features)
+    cuda_drugs = torch.from_numpy(drug_features)
+    
     # dcell neural network
     model = drugcell_nn(term_size_map, term_direct_gene_map, dG, gene_dim, drug_dim, root, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, CUDA_ID)
     # load pretrain model
@@ -131,17 +181,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     else:
         print("Pre-trained model does not exist, so before pruning we have to pre-train a model.")
         sys.exit()
+    training_acc(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
 
-    # separate the whole data into training and test data
-    train_feature, train_label, test_feature, test_label = train_data
-
-    # copy labels (observation) to GPU - will be used to 
-    train_label_gpu = torch.autograd.Variable(train_label.cuda(CUDA_ID))
-    test_label_gpu = torch.autograd.Variable(test_label.cuda(CUDA_ID))
-
-    # create a torch objects containing input features for cell lines and drugs
-    cuda_cells = torch.from_numpy(cell_features)
-    cuda_drugs = torch.from_numpy(drug_features)
+    
 
     # load model to GPU
     model.cuda(CUDA_ID)
@@ -162,60 +204,59 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         else:
             param.data = param.data * 0.1
 
-    # create dataloader for training/test data
-    train_loader = du.DataLoader(du.TensorDataset(train_feature,train_label), batch_size=batch_size, shuffle=False)
-    test_loader = du.DataLoader(du.TensorDataset(test_feature,test_label), batch_size=batch_size, shuffle=False)
+    
 
     for epoch in range(train_epochs):
 
-	#Train
-        model.train()
-        train_predict = torch.zeros(0,0).cuda(CUDA_ID)
+        # prune procedure
+        for prune_epoch in range(20):
+	        #Train
+            model.train()
+            train_predict = torch.zeros(0,0).cuda(CUDA_ID)
 
-        for i, (inputdata, labels) in enumerate(train_loader):
+            for i, (inputdata, labels) in enumerate(train_loader):
+                cuda_labels = torch.autograd.Variable(labels.cuda(CUDA_ID))
 
-            cuda_labels = torch.autograd.Variable(labels.cuda(CUDA_ID))
+	            # Forward + Backward + Optimize
+                optimizer.zero_grad()  # zero the gradient buffer
 
-	    # Forward + Backward + Optimize
-            optimizer.zero_grad()  # zero the gradient buffer
+                cuda_cell_features = build_input_vector(inputdata.narrow(1, 0, 1).tolist(), gene_dim, cuda_cells)
+                cuda_drug_features = build_input_vector(inputdata.narrow(1, 1, 1).tolist(), drug_dim, cuda_drugs)
 
-            cuda_cell_features = build_input_vector(inputdata.narrow(1, 0, 1).tolist(), gene_dim, cuda_cells)
-            cuda_drug_features = build_input_vector(inputdata.narrow(1, 1, 1).tolist(), drug_dim, cuda_drugs)
+	            # Here term_NN_out_map is a dictionary
+                aux_out_map, _ = model(cuda_cell_features, cuda_drug_features)
 
-	    # Here term_NN_out_map is a dictionary 
-            aux_out_map, _ = model(cuda_cell_features, cuda_drug_features)
+                if train_predict.size()[0] == 0:
+                    train_predict = aux_out_map['final'].data
+                else:
+                    train_predict = torch.cat([train_predict, aux_out_map['final'].data], dim=0)
 
-            if train_predict.size()[0] == 0:
-                train_predict = aux_out_map['final'].data
-            else:
-                train_predict = torch.cat([train_predict, aux_out_map['final'].data], dim=0)
+                total_loss = 0
+                for name, output in aux_out_map.items():
+                    loss = nn.MSELoss()
+                    if name == 'final':
+                        total_loss += loss(output, cuda_labels)
+                    else: # change 0.2 to smaller one for big terms
+                        total_loss += 0.2 * loss(output, cuda_labels)
 
-            total_loss = 0	
-            for name, output in aux_out_map.items():
-                loss = nn.MSELoss()
-                if name == 'final':
-                    total_loss += loss(output, cuda_labels)
-                else: # change 0.2 to smaller one for big terms
-                    total_loss += 0.2 * loss(output, cuda_labels)
+                total_loss.backward()
 
-            total_loss.backward()
-
-            for name, param in model.named_parameters():
-                if '_direct_gene_layer.weight' not in name:
-                    continue
-                term_name = name.split('_')[0]
-                #print(name, param.grad.data.size(), term_mask_map[term_name].size())
-                param.grad.data = torch.mul(param.grad.data, term_mask_map[term_name])
+                for name, param in model.named_parameters():
+                    if '_direct_gene_layer.weight' not in name:
+                        continue
+                    term_name = name.split('_')[0]
+                    #print(name, param.grad.data.size(), term_mask_map[term_name].size())
+                    param.grad.data = torch.mul(param.grad.data, term_mask_map[term_name])
           
-            #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
-            optimize_palm(model, dGc, root, reg_l0=0.0001, reg_glasso=0.00001, reg_decay=0.00001, lr=0.001, lip=0.001)
-            #optimizer.step()
-            print(i,total_loss.item())
+                #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
+                optimize_palm(model, dGc, root, reg_l0=0.0001, reg_glasso=0.00001, reg_decay=0.00001, lr=0.001, lip=0.001)
+                #optimizer.step()
+                print(i,total_loss.item())
 
-        train_corr = spearman_corr(train_predict, train_label_gpu)
+            train_corr = spearman_corr(train_predict, train_label_gpu)
 
-	#checkpoint = {'model': model.state_dict(), 'optimizer': optimizer.state_dict()}
-	#torch.save(checkpoint, model_save_folder + '/model_' + str(epoch))
+	    #checkpoint = {'model': model.state_dict(), 'optimizer': optimizer.state_dict()}
+	    #torch.save(checkpoint, model_save_folder + '/model_' + str(epoch))
         
         #Test: random variables in training mode become static
         model.eval()
@@ -246,6 +287,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         torch.save(model, model_save_folder + 'prune_final/drugcell_prune_lung_best.pt')
 
         print("Best performed model (epoch)\t%d" % best_model)
+        
+        # retrain procedure
+        
 
 
 parser = argparse.ArgumentParser(description='Train dcell')
