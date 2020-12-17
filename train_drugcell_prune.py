@@ -154,6 +154,69 @@ def test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim,
     
     #print("pretrained model %f test acc" % (test_corr))
     return test_corr
+    
+def retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID):
+
+    for name, param in model.named_parameters():
+        if "direct" in name:
+            # mutation side
+            # l0 for direct edge from gene to term
+            mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
+            param.register_hook(lambda grad: grad.mul_(mask))
+        if "GO_linear_layer" in name:
+            # group lasso for
+            mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
+            param.register_hook(lambda grad: grad.mul_(mask))
+
+ 
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
+    for retain_epoch in range(1):
+        model.train()
+        train_predict = torch.zeros(0,0).cuda(CUDA_ID)
+
+        best_acc = [0]
+        for i, (inputdata, labels) in enumerate(train_loader):
+            cuda_labels = torch.autograd.Variable(labels.cuda(CUDA_ID))
+
+            # Forward + Backward + Optimize
+            optimizer.zero_grad()  # zero the gradient buffer
+
+            cuda_cell_features = build_input_vector(inputdata.narrow(1, 0, 1).tolist(), gene_dim, cuda_cells)
+            cuda_drug_features = build_input_vector(inputdata.narrow(1, 1, 1).tolist(), drug_dim, cuda_drugs)
+
+            # Here term_NN_out_map is a dictionary
+            aux_out_map, _ = model(cuda_cell_features, cuda_drug_features)
+
+            if train_predict.size()[0] == 0:
+                train_predict = aux_out_map['final'].data
+            else:
+                train_predict = torch.cat([train_predict, aux_out_map['final'].data], dim=0)
+
+            total_loss = 0
+            for name, output in aux_out_map.items():
+                loss = nn.MSELoss()
+                if name == 'final':
+                    total_loss += loss(output, cuda_labels)
+                else: # change 0.2 to smaller one for big terms
+                    total_loss += 0.2 * loss(output, cuda_labels)
+            optimizer.zero_grad()
+            print("Retrain %d: total loss %f" % (i, total_loss.item()))
+            total_loss.backward()
+    
+            optimizer.step()
+            print("Retrain %d: total loss %f" % (i, total_loss.item()))
+            
+        train_corr = spearman_corr(train_predict, train_label_gpu)
+        retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
+        print(">>>>>Retraining step %d: model test acc %f" % (retain_epoch, prune_test_corr))
+        
+        if retrain_test_corr > best_acc[-1]:
+            best_acc.append(accuracy)
+            torch.save(model.state_dict(), model_save_folder + 'prune_final/drugcell_retrain_lung_best'+str(epoch)+'_'+str(retain_epoch)+'.pkl')
+            best_model = model.state_dict()
+            
+        model.load_state_dict(best_model)
+    return model
 
 # train a DrugCell model 
 def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG, train_data, gene_dim, drug_dim, model_save_folder, train_epochs, batch_size, learning_rate, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, cell_features, drug_features):
@@ -291,7 +354,10 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             prune_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
             print(">>>>>Pruning step %d: model test acc %f" % (prune_epoch, prune_test_corr))
         
+        
+        
         # retraining step
+        retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
         # masking
         with torch.no_grad():
             for name, param in model.named_parameters():
