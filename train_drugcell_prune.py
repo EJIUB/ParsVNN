@@ -283,7 +283,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     param.grad.data = torch.mul(param.grad.data, term_mask_map[term_name])
           
                 #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
-                optimize_palm(model, dGc, root, reg_l0=1, reg_glasso=10, reg_decay=0.001, lr=0.001, lip=0.001)
+                optimize_palm(model, dGc, root, reg_l0=1, reg_glasso=1, reg_decay=0.001, lr=0.001, lip=0.001)
                 #optimizer.step()
                 print("Prune %d: total loss %f" % (i,total_loss.item()))
 
@@ -293,23 +293,20 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         
         # retraining step
         # masking
-        '''
         for name, param in model.named_parameters():
             if "direct" in name:
                 # mutation side
                 # l0 for direct edge from gene to term
                 mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
                 param.register_hook(lambda grad: grad.mul_(mask))
-            elif "GO_linear_layer" in name:
+            if "GO_linear_layer" in name:
                 # group lasso for
                 mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
                 param.register_hook(lambda grad: grad.mul_(mask))
-            else:
-                continue
-        '''
+        
          
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
-        for retain_epoch in range(10):
+        for retain_epoch in range(1):
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
 
@@ -348,7 +345,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
             print(">>>>>Retraining step %d: model test acc %f" % (retain_epoch, prune_test_corr))
             
-            if retrain_test_corr > best_acc:
+            if retrain_test_corr > best_acc[-1]:
                 best_acc.append(accuracy)
                 torch.save(model.state_dict(), model_save_folder + 'prune_final/drugcell_retrain_lung_best'+str(epoch)+'_'+str(retain_epoch)+'.pkl')
                 best_model = model.state_dict()
