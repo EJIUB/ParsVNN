@@ -293,16 +293,17 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         
         # retraining step
         # masking
-        for name, param in model.named_parameters():
-            if "direct" in name:
-                # mutation side
-                # l0 for direct edge from gene to term
-                mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
-                param.register_hook(lambda grad: grad.mul_(mask))
-            if "GO_linear_layer" in name:
-                # group lasso for
-                mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
-                param.register_hook(lambda grad: grad.mul_(mask))
+        with torch.no_grad():
+            for name, param in model.named_parameters():
+                if "direct" in name:
+                    # mutation side
+                    # l0 for direct edge from gene to term
+                    mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
+                    param.register_hook(lambda grad: grad.mul_(mask))
+                if "GO_linear_layer" in name:
+                    # group lasso for
+                    mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
+                    param.register_hook(lambda grad: grad.mul_(mask))
         
          
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
