@@ -279,11 +279,12 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     param.grad.data = torch.mul(param.grad.data, term_mask_map[term_name])
           
                 #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
-                optimize_palm(model, dGc, root, reg_l0=0.0001, reg_glasso=0.00001, reg_decay=0.00001, lr=0.001, lip=0.001)
+                optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=0.001, reg_decay=0.00001, lr=0.001, lip=0.001)
                 #optimizer.step()
                 print(i,total_loss.item())
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
+            test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
 
 	    #checkpoint = {'model': model.state_dict(), 'optimizer': optimizer.state_dict()}
 	    #torch.save(checkpoint, model_save_folder + '/model_' + str(epoch))
