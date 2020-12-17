@@ -60,7 +60,7 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
             # mutation side
             # l0 for direct edge from gene to term
             param_tmp = param.data - lip*param.grad.data
-            param_tmp2 = proximal_l0(param_tmp, reg_l0*lip)
+            param_tmp2 = proximal_l0(param_tmp, torch.tensor(reg_l0*lip))
             print("%s: before #0 is %d, after #0 is %d, threshold: %f" %(name, len(torch.nonzero(param.data, as_tuple =False)), len(torch.nonzero(param_tmp2, as_tuple =False)), reg_l0*lip))
             param.data = param_tmp2
         elif "GO_linear_layer" in name:
