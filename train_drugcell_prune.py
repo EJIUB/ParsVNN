@@ -149,7 +149,8 @@ def test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim,
 
     test_corr = spearman_corr(test_predict, test_label_gpu)
     
-    print("pretrained model %f test acc" % (test_corr))
+    #print("pretrained model %f test acc" % (test_corr))
+    return test_corr
 
 # train a DrugCell model 
 def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG, train_data, gene_dim, drug_dim, model_save_folder, train_epochs, batch_size, learning_rate, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, cell_features, drug_features):
@@ -238,7 +239,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
 
     for epoch in range(train_epochs):
 
-        # prune procedure
+        # prune step
         for prune_epoch in range(20):
 	        #Train
             model.train()
@@ -281,45 +282,75 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
                 optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=0.001, reg_decay=0.00001, lr=0.001, lip=0.001)
                 #optimizer.step()
-                print(i,total_loss.item())
+                print("Prune %d: total loss %f" % (i,total_loss.item()))
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
-            test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
-
-	    #checkpoint = {'model': model.state_dict(), 'optimizer': optimizer.state_dict()}
-	    #torch.save(checkpoint, model_save_folder + '/model_' + str(epoch))
+            prune_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
+            print(">>>>>Pruning step %d: model test acc %f" % (prune_epoch, prune_test_corr))
         
-        #Test: random variables in training mode become static
-        model.eval()
-            
-        test_predict = torch.zeros(0,0).cuda(CUDA_ID)
-
-        for i, (inputdata, labels) in enumerate(test_loader):
-            # Convert torch tensor to Variable
-            cuda_cell_features = build_input_vector(inputdata.narrow(1, 0, 1).tolist(), gene_dim, cuda_cells)
-            cuda_drug_features = build_input_vector(inputdata.narrow(1, 1, 1).tolist(), drug_dim, cuda_drugs)
-
-
-            aux_out_map, _ = model(cuda_cell_features, cuda_drug_features)
-
-            if test_predict.size()[0] == 0:
-                test_predict = aux_out_map['final'].data
+        # retraining step
+        # masking
+        for name, param in model.named_parameters():
+            if "direct" in name:
+                # mutation side
+                # l0 for direct edge from gene to term
+                mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
+                param.register_hook(lambda grad: grad.mul_(mask))
+            elif "GO_linear_layer" in name:
+                # group lasso for
+                mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
+                param.register_hook(lambda grad: grad.mul_(mask))
             else:
-                test_predict = torch.cat([test_predict, aux_out_map['final'].data], dim=0)
+                continue
+                
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
+        for retain_epoch in range(20):
+            model.train()
+            train_predict = torch.zeros(0,0).cuda(CUDA_ID)
 
-        test_corr = spearman_corr(test_predict, test_label_gpu)
+            best_acc = [0]
+            for i, (inputdata, labels) in enumerate(train_loader):
+                cuda_labels = torch.autograd.Variable(labels.cuda(CUDA_ID))
 
-        print("Epoch\t%d\tCUDA_ID\t%d\ttrain_corr\t%.6f\ttest_corr\t%.6f\ttotal_loss\t%.6f" % (epoch, CUDA_ID, train_corr, test_corr, total_loss))
-        
-        if test_corr >= max_corr:
-            max_corr = test_corr
-            best_model = epoch
-        
-        torch.save(model, model_save_folder + 'prune_final/drugcell_prune_lung_best.pt')
+                # Forward + Backward + Optimize
+                optimizer.zero_grad()  # zero the gradient buffer
 
-        print("Best performed model (epoch)\t%d" % best_model)
-        
-        # retrain procedure
+                cuda_cell_features = build_input_vector(inputdata.narrow(1, 0, 1).tolist(), gene_dim, cuda_cells)
+                cuda_drug_features = build_input_vector(inputdata.narrow(1, 1, 1).tolist(), drug_dim, cuda_drugs)
+
+                # Here term_NN_out_map is a dictionary
+                aux_out_map, _ = model(cuda_cell_features, cuda_drug_features)
+
+                if train_predict.size()[0] == 0:
+                    train_predict = aux_out_map['final'].data
+                else:
+                    train_predict = torch.cat([train_predict, aux_out_map['final'].data], dim=0)
+
+                total_loss = 0
+                for name, output in aux_out_map.items():
+                    loss = nn.MSELoss()
+                    if name == 'final':
+                        total_loss += loss(output, cuda_labels)
+                    else: # change 0.2 to smaller one for big terms
+                        total_loss += 0.2 * loss(output, cuda_labels)
+
+                total_loss.backward()
+            
+                optimizer.step()
+                print("Retrain %d: total loss %f" % (i, total_loss.item()))
+
+            train_corr = spearman_corr(train_predict, train_label_gpu)
+            retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
+            print(">>>>>Retraining step %d: model test acc %f" % (retain_epoch, prune_test_corr))
+            
+            if retrain_test_corr > best_acc:
+                best_acc.append(accuracy)
+                torch.save(model.state_dict(), model_save_folder + 'prune_final/drugcell_retrain_lung_best'+str(epoch)+'_'+str(retain_epoch)+'.pkl')
+                best_model = model.state_dict()
+                
+            model.load_state_dict(best_model)
+            
+
         
 
 
