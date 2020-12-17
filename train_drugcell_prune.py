@@ -217,6 +217,9 @@ def retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim
             
         model.load_state_dict(best_model)
     return model
+    
+def grad_hook_masking(grad, mask):
+    return grad.mul_(mask)
 
 # train a DrugCell model 
 def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG, train_data, gene_dim, drug_dim, model_save_folder, train_epochs, batch_size, learning_rate, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, cell_features, drug_features):
@@ -357,7 +360,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         
         
         # retraining step
-        retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID, learning_rate)
+        #retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID, learning_rate)
         # masking
         with torch.no_grad():
             for name, param in model.named_parameters():
@@ -365,11 +368,11 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     # mutation side
                     # l0 for direct edge from gene to term
                     mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
-                    param.register_hook(lambda grad: grad.mul_(mask))
+                    param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
                 if "GO_linear_layer" in name:
                     # group lasso for
                     mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
-                    param.register_hook(lambda grad: grad.mul_(mask))
+                    param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
         
          
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
