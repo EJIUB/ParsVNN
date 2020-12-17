@@ -335,7 +335,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                         total_loss += loss(output, cuda_labels)
                     else: # change 0.2 to smaller one for big terms
                         total_loss += 0.2 * loss(output, cuda_labels)
-
+                optimizer.zero_grad()
                 print("Retrain %d: total loss %f" % (i, total_loss.item()))
                 total_loss.backward()
             
