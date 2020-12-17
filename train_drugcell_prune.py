@@ -155,7 +155,7 @@ def test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim,
     #print("pretrained model %f test acc" % (test_corr))
     return test_corr
     
-def retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID):
+def retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID, learning_rate):
 
     for name, param in model.named_parameters():
         if "direct" in name:
@@ -357,7 +357,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         
         
         # retraining step
-        retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
+        retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID, learning_rate)
         # masking
         with torch.no_grad():
             for name, param in model.named_parameters():
