@@ -61,7 +61,7 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
             # l0 for direct edge from gene to term
             param_tmp = param.data - lip*param.grad.data
             param_tmp2 = proximal_l0(param_tmp, torch.tensor(reg_l0*lip))
-            print("%s: before #0 is %d, after #0 is %d, threshold: %f" %(name, len(torch.nonzero(param.data, as_tuple =False)), len(torch.nonzero(param_tmp2, as_tuple =False)), reg_l0*lip))
+            #("%s: before #0 is %d, after #0 is %d, threshold: %f" %(name, len(torch.nonzero(param.data, as_tuple =False)), len(torch.nonzero(param_tmp2, as_tuple =False)), reg_l0*lip))
             param.data = param_tmp2
         elif "GO_linear_layer" in name:
             # group lasso for
@@ -74,7 +74,7 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
                 term_input_grad = param.grad.data[:,i*dim:(i+1)*dim]
                 term_input_tmp = term_input - lip*term_input_grad
                 term_input_update = proximal_glasso_nonoverlap(term_input_tmp, reg_glasso*lip)
-                print("%s child %d: before norm is %f, after #0 is %f, threshold %f" %(name, i, torch.norm(term_input, p='fro'), torch.norm(term_input_update, p='fro'), reg_glasso*lip))
+                #print("%s child %d: before norm is %f, after #0 is %f, threshold %f" %(name, i, torch.norm(term_input, p='fro'), torch.norm(term_input_update, p='fro'), reg_glasso*lip))
                 param.data[:,i*dim:(i+1)*dim] = term_input_update
                 num_n0 =  len(torch.nonzero(term_input_update, as_tuple =False))
                 if num_n0 == 0 :
@@ -283,7 +283,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     param.grad.data = torch.mul(param.grad.data, term_mask_map[term_name])
           
                 #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
-                optimize_palm(model, dGc, root, reg_l0=1, reg_glasso=1, reg_decay=0.001, lr=0.001, lip=0.001)
+                optimize_palm(model, dGc, root, reg_l0=1, reg_glasso=100, reg_decay=0.001, lr=0.001, lip=0.001)
                 #optimizer.step()
                 print("Prune %d: total loss %f" % (i,total_loss.item()))
 
