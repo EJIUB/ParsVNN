@@ -208,7 +208,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
 
     # define optimizer
     # optimize drug NN
-    #optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
     term_mask_map = create_term_mask(model.term_direct_gene_map, gene_dim)
         
     # load pretrain model
