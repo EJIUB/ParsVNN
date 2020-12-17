@@ -31,19 +31,19 @@ def create_term_mask(term_direct_gene_map, gene_dim):
 
     return term_mask_map
 
-# solution for ||x-y||^2_2 + c||x||_0
+# solution for 1/2||x-y||^2_2 + c||x||_0
 def proximal_l0(yvec, c):
     yvec_abs =  torch.abs(yvec)
-    csqrt = torch.sqrt(c)
+    csqrt = torch.sqrt(2*c)
     
     xvec = (yvec_abs>=csqrt)*yvec
     return xvec
 
-# solution for ||x-y||^2_2 + c||x||_g
+# solution for 1/2||x-y||^2_2 + c||x||_g
 def proximal_glasso_nonoverlap(yvec, c):
     ynorm = torch.norm(yvec, p='fro')
-    if ynorm > c/2.:
-        xvec = (yvec/ynorm)*(ynorm-c/2.)
+    if ynorm > c:
+        xvec = (yvec/ynorm)*(ynorm-c)
     else:
         xvec = torch.zeros_like(yvec)
     return xvec
@@ -60,7 +60,9 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
             # mutation side
             # l0 for direct edge from gene to term
             param_tmp = param.data - lip*param.grad.data
-            param.data = proximal_l0(param_tmp, torch.tensor(reg_l0))
+            param_tmp2 = proximal_l0(param_tmp, reg_l0*lip)
+            print("%s: before #0 is %d, after #0 is %d, threshold: %f" %(name, len(torch.nonzero(param.data, as_tuple =False)), len(torch.nonzero(param_tmp2, as_tuple =False)), reg_l0*lip))
+            param.data = param_tmp2
         elif "GO_linear_layer" in name:
             # group lasso for
             dim = model.num_hiddens_genotype
@@ -71,7 +73,8 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
                 term_input = param.data[:,i*dim:(i+1)*dim]
                 term_input_grad = param.grad.data[:,i*dim:(i+1)*dim]
                 term_input_tmp = term_input - lip*term_input_grad
-                term_input_update = proximal_glasso_nonoverlap(term_input_tmp, reg_glasso)
+                term_input_update = proximal_glasso_nonoverlap(term_input_tmp, reg_glasso*lip)
+                print("%s child %d: before norm is %f, after #0 is %f, threshold %f" %(name, i, torch.norm(term_input, p='fro'), torch.norm(term_input_update, p='fro'), reg_glasso*lip))
                 param.data[:,i*dim:(i+1)*dim] = term_input_update
                 num_n0 =  len(torch.nonzero(term_input_update, as_tuple =False))
                 if num_n0 == 0 :
@@ -85,7 +88,7 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
         else:
             # other param weigth decay
             param_tmp = param.data - lr*param.grad.data
-            param.data = proximal_l2(param_tmp, reg_decay)
+            param.data = proximal_l2(param_tmp, 2*reg_decay*lr)
     #sub_dG_prune = dG_prune.subgraph(nx.shortest_path(dG_prune.to_undirected(),root))
     print("Original graph has %d nodes and %d edges" % (dG.number_of_nodes(), dG.number_of_edges()))
     sub_dG_prune = dG_prune.subgraph(nx.shortest_path(dG_prune.to_undirected(),root))
@@ -216,8 +219,8 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     else:
         print("Pre-trained model does not exist, so before pruning we have to pre-train a model.")
         sys.exit()
-    training_acc(model, optimizer, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
-    test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
+    #training_acc(model, optimizer, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
+    #test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
     
 
     
@@ -290,6 +293,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         
         # retraining step
         # masking
+        '''
         for name, param in model.named_parameters():
             if "direct" in name:
                 # mutation side
@@ -302,7 +306,8 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 param.register_hook(lambda grad: grad.mul_(mask))
             else:
                 continue
-                
+        '''
+         
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
         for retain_epoch in range(10):
             model.train()
