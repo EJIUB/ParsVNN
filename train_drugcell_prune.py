@@ -352,6 +352,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=0.01, reg_decay=0.001, lr=0.001, lip=0.001)
                 #optimizer.step()
                 print("Prune %d: total loss %f" % (i,total_loss.item()))
+                del total_loss
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
             prune_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
@@ -410,7 +411,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 total_loss.backward()
             
                 optimizer.step()
+                torch.cuda.empty_cache()
                 print("Retrain %d: total loss %f" % (i, total_loss.item()))
+                del total_loss
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
