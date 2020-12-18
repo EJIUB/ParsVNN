@@ -74,7 +74,7 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
                 term_input_grad = param.grad.data[:,i*dim:(i+1)*dim]
                 term_input_tmp = term_input - lip*term_input_grad
                 term_input_update = proximal_glasso_nonoverlap(term_input_tmp, reg_glasso*lip)
-                print("%s child %d: before norm is %f, after #0 is %f, threshold %f" %(name, i, torch.norm(term_input, p='fro'), torch.norm(term_input_update, p='fro'), reg_glasso*lip))
+                #print("%s child %d: before norm is %f, after #0 is %f, threshold %f" %(name, i, torch.norm(term_input, p='fro'), torch.norm(term_input_update, p='fro'), reg_glasso*lip))
                 param.data[:,i*dim:(i+1)*dim] = term_input_update
                 num_n0 =  len(torch.nonzero(term_input_update, as_tuple =False))
                 if num_n0 == 0 :
@@ -309,7 +309,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     for epoch in range(train_epochs):
 
         # prune step
-        for prune_epoch in range(10):
+        for prune_epoch in range(20):
 	        #Train
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
