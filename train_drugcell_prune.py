@@ -309,7 +309,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     for epoch in range(train_epochs):
 
         # prune step
-        for prune_epoch in range(1):
+        for prune_epoch in range(10):
 	        #Train
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
@@ -355,7 +355,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
             prune_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
-            print(">>>>>Pruning step %d: model test acc %f" % (prune_epoch, prune_test_corr))
+            print(">>>>>Pruning step %d: model train acc %f test acc %f" % (prune_epoch, train_corr, prune_test_corr))
         
         
         
@@ -376,7 +376,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         
          
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
-        for retain_epoch in range(1):
+        for retain_epoch in range(10):
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
 
@@ -414,10 +414,10 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
-            print(">>>>>Retraining step %d: model test acc %f" % (retain_epoch, prune_test_corr))
+            print(">>>>>Retraining step %d: model training acc %f test acc %f" % (retain_epoch, train_corr, prune_test_corr))
             
             if retrain_test_corr > best_acc[-1]:
-                best_acc.append(accuracy)
+                best_acc.append(retrain_test_corr)
                 torch.save(model.state_dict(), model_save_folder + 'prune_final/drugcell_retrain_lung_best'+str(epoch)+'_'+str(retain_epoch)+'.pkl')
                 best_model = model.state_dict()
                 
