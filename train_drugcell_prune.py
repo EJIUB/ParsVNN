@@ -309,7 +309,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     for epoch in range(train_epochs):
 
         # prune step
-        for prune_epoch in range(20):
+        for prune_epoch in range(50):
 	        #Train
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
@@ -356,7 +356,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
             prune_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
-            print(">>>>>Pruning step %d: model train acc %f test acc %f" % (prune_epoch, train_corr, prune_test_corr))
+            print(">>>>>%d epoch run Pruning step %d: model train acc %f test acc %f" % (epoch, prune_epoch, train_corr, prune_test_corr))
         
         
         
@@ -417,7 +417,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
-            print(">>>>>Retraining step %d: model training acc %f test acc %f" % (retain_epoch, train_corr, prune_test_corr))
+            print(">>>>>%d epoch Retraining step %d: model training acc %f test acc %f" % (epoch, retain_epoch, train_corr, prune_test_corr))
             
             if retrain_test_corr > best_acc[-1]:
                 best_acc.append(retrain_test_corr)
