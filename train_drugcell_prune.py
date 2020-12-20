@@ -309,7 +309,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     for epoch in range(train_epochs):
 
         # prune step
-        for prune_epoch in range(30):
+        for prune_epoch in range(20):
 	        #Train
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
@@ -349,10 +349,12 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     param.grad.data = torch.mul(param.grad.data, term_mask_map[term_name])
           
                 #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
-                optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=0.1, reg_decay=0.001, lr=0.001, lip=0.001)
+                optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=1, reg_decay=0.001, lr=0.001, lip=0.001)
                 #optimizer.step()
                 print("Prune %d: total loss %f" % (i,total_loss.item()))
                 del total_loss
+                del aux_out_map
+                torch.cuda.empty_cache()
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
             prune_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
@@ -411,9 +413,10 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 total_loss.backward()
             
                 optimizer.step()
-                torch.cuda.empty_cache()
                 print("Retrain %d: total loss %f" % (i, total_loss.item()))
                 del total_loss
+                del aux_out_map
+                torch.cuda.empty_cache()
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
