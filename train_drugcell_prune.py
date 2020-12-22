@@ -309,7 +309,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     for epoch in range(train_epochs):
 
         # prune step
-        for prune_epoch in range(20):
+        for prune_epoch in range(1):
 	        #Train
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
@@ -382,7 +382,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         
          
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
-        for retain_epoch in range(30):
+        for retain_epoch in range(1):
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
 
