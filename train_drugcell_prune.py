@@ -93,6 +93,9 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
     print("Original graph has %d nodes and %d edges" % (dG.number_of_nodes(), dG.number_of_edges()))
     sub_dG_prune = dG_prune.subgraph(nx.shortest_path(dG_prune.to_undirected(),root))
     print("Pruned   graph has %d nodes and %d edges" % (sub_dG_prune.number_of_nodes(), sub_dG_prune.number_of_edges()))
+    
+    del param_tmp, param_tmp2, child, term_input, term_input_grad, term_input_tmp, term_input_update
+    del direct_input, direct_input_grad, direct_input_tmp, direct_input_update
         
 
 def training_acc(model, optimizer, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID):
@@ -151,6 +154,7 @@ def test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim,
             test_predict = torch.cat([test_predict, aux_out_map['final'].data], dim=0)
 
     test_corr = spearman_corr(test_predict, test_label_gpu)
+    del aux_out_map, inputdata, labels, test_predict
     
     #print("pretrained model %f test acc" % (test_corr))
     return test_corr
