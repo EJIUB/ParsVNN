@@ -118,7 +118,7 @@ def check_network(model, dG, root):
     print("Pruned   graph has %d nodes and %d edges" % (sub_dG_prune.number_of_nodes(), sub_dG_prune.number_of_edges()))
     
 def check_parameter(model, CUDA_ID):
-    count = torch.zeros(0,0).cuda(CUDA_ID)
+    count = torch.tensor([0]).cuda(CUDA_ID)
     for name, param in model.named_parameters():
         if "GO_linear_layer" in name:
             print(name)
@@ -256,7 +256,9 @@ def retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim
     return model
     
 def grad_hook_masking(grad, mask):
-    return grad.mul_(mask)
+    grad = grad.mul_(mask)
+    del mask
+    #return grad.mul_(mask)
 
 # train a DrugCell model 
 def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG, train_data, gene_dim, drug_dim, model_save_folder, train_epochs, batch_size, learning_rate, num_hiddens_genotype, num_hiddens_drug, num_hiddens_final, cell_features, drug_features):
@@ -415,15 +417,15 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 if "direct" in name:
                     # mutation side
                     # l0 for direct edge from gene to term
-                    #mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
-                    #handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
-                    handle = param.register_hook(lambda grad: grad.mul_(torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))))
+                    mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
+                    handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
+                    #handle = param.register_hook(lambda grad: grad.mul_(torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))))
                     handle_list.append(handle)
                 if "GO_linear_layer" in name:
                     # group lasso for
-                    #mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
-                    #handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
-                    handle = param.register_hook(lambda grad: grad.mul_(torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))))
+                    mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
+                    handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
+                    #handle = param.register_hook(lambda grad: grad.mul_(torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))))
                     handle_list.append(handle)
         torch.cuda.empty_cache()
         
