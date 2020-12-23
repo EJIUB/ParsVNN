@@ -419,7 +419,16 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         check_network(model, dGc, root)
          
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
+        
+        print("check network after optimizer:")
+        check_network(model, dGc, root)
+        
         for retain_epoch in range(2):
+        
+            print("check network before train:")
+            check_network(model, dGc, root)
+            
+            
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
             
@@ -475,7 +484,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             
             if retrain_test_corr > best_acc[-1]:
                 best_acc.append(retrain_test_corr)
-                torch.save(model.state_dict(), model_save_folder + 'prune_final/drugcell_retrain_lung_best'+str(epoch)+'_'+str(retain_epoch)+'.pkl')
+                #torch.save(model.state_dict(), model_save_folder + 'prune_final/drugcell_retrain_lung_best'+str(epoch)+'_'+str(retain_epoch)+'.pkl')
                 best_model = model.state_dict()
                 
             model.load_state_dict(best_model)
