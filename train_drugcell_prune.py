@@ -10,6 +10,7 @@ import util
 from util import *
 from drugcell_NN import *
 import argparse
+import gc
 
 
 # build mask: matrix (nrows = number of relevant gene set, ncols = number all genes)
@@ -145,6 +146,8 @@ def test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim,
         cuda_cell_features = build_input_vector(inputdata.narrow(1, 0, 1).tolist(), gene_dim, cuda_cells)
         cuda_drug_features = build_input_vector(inputdata.narrow(1, 1, 1).tolist(), drug_dim, cuda_drugs)
 
+        cuda_cell_features.cuda(CUDA_ID)
+        cuda_drug_features.cuda(CUDA_ID)
 
         aux_out_map, _ = model(cuda_cell_features, cuda_drug_features)
 
@@ -154,7 +157,7 @@ def test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim,
             test_predict = torch.cat([test_predict, aux_out_map['final'].data], dim=0)
 
     test_corr = spearman_corr(test_predict, test_label_gpu)
-    del aux_out_map, inputdata, labels, test_predict
+    del aux_out_map, inputdata, labels, test_predict, cuda_cell_features, cuda_drug_features
     
     #print("pretrained model %f test acc" % (test_corr))
     return test_corr
@@ -359,7 +362,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=1, reg_decay=0.001, lr=0.001, lip=0.001)
                 #optimizer.step()
                 print("Prune %d: total loss %f" % (i,total_loss.item()))
-            del total_loss
+            del total_loss, cuda_cell_features, cuda_drug_features
             del aux_out_map, inputdata, labels
             torch.cuda.empty_cache()
 
@@ -399,6 +402,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
 
                 cuda_cell_features = build_input_vector(inputdata.narrow(1, 0, 1).tolist(), gene_dim, cuda_cells)
                 cuda_drug_features = build_input_vector(inputdata.narrow(1, 1, 1).tolist(), drug_dim, cuda_drugs)
+                
+                cuda_cell_features.cuda(CUDA_ID)
+                cuda_drug_features.cuda(CUDA_ID)
 
                 # Here term_NN_out_map is a dictionary
                 aux_out_map, _ = model(cuda_cell_features, cuda_drug_features)
@@ -421,7 +427,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             
                 optimizer.step()
                 print("Retrain %d: total loss %f" % (i, total_loss.item()))
-            del total_loss
+            del total_loss, cuda_cell_features, cuda_drug_features
             del aux_out_map, inputdata, labels
             torch.cuda.empty_cache()
 
