@@ -97,6 +97,25 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
     
     del param_tmp, param_tmp2, child, term_input, term_input_grad, term_input_tmp, term_input_update
     del direct_input, direct_input_grad, direct_input_tmp, direct_input_update
+    
+# check network statisics
+def check_network(model, dG, root,):
+    dG_prune = dG.copy()
+    for name, param in model.named_parameters():
+        if "GO_linear_layer" in name:
+            # group lasso for
+            dim = model.num_hiddens_genotype
+            term_name = name.split('_')[0]
+            child = model.term_neighbor_map[term_name]
+            for i in range(len(child)):
+                #dim = model.num_hiddens_genotype
+                term_input = param.data[:,i*dim:(i+1)*dim]
+                num_n0 =  len(torch.nonzero(term_input, as_tuple =False))
+                if num_n0 == 0 :
+                    dG_prune.remove_edge(term_name, child[i])
+    print("Original graph has %d nodes and %d edges" % (dG.number_of_nodes(), dG.number_of_edges()))
+    sub_dG_prune = dG_prune.subgraph(nx.shortest_path(dG_prune.to_undirected(),root))
+    print("Pruned   graph has %d nodes and %d edges" % (sub_dG_prune.number_of_nodes(), sub_dG_prune.number_of_edges()))
         
 
 def training_acc(model, optimizer, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID):
@@ -425,18 +444,19 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     else: # change 0.2 to smaller one for big terms
                         total_loss += 0.2 * loss(output, cuda_labels)
                 optimizer.zero_grad()
-                print("Retrain %d: total loss %f" % (i, total_loss.item()))
+                #print("Retrain %d: total loss %f" % (i, total_loss.item()))
                 total_loss.backward()
             
                 optimizer.step()
                 print("Retrain %d: total loss %f" % (i, total_loss.item()))
+                check_network(model, dGc, root)
             del total_loss, cuda_cell_features, cuda_drug_features
             del aux_out_map, inputdata, labels
             torch.cuda.empty_cache()
             # remove hooks
             for handle in handle_list:
                 handle.remove()
-            optimizer.zero_grad()
+            #optimizer.zero_grad()
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
