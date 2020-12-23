@@ -371,7 +371,13 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             print(">>>>>%d epoch run Pruning step %d: model train acc %f test acc %f" % (epoch, prune_epoch, train_corr, prune_test_corr))
             del train_predict, prune_test_corr
         
-        
+        for obj in gc.get_objects():
+        try:
+            if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+                print(type(obj), obj.size())
+        except:
+            pass
+            
         # retraining step
         #retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID, learning_rate)
         # masking
@@ -387,7 +393,13 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
                     param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
         del mask
-        
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+        for obj in gc.get_objects():
+        try:
+            if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+                print(type(obj), obj.size())
+        except:
+            pass
          
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
         for retain_epoch in range(1):
