@@ -99,7 +99,7 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
     del direct_input, direct_input_grad, direct_input_tmp, direct_input_update
     
 # check network statisics
-def check_network(model, dG, root,]):
+def check_network(model, dG, root):
     dG_prune = dG.copy()
     for name, param in model.named_parameters():
         if "GO_linear_layer" in name:
