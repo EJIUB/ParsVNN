@@ -335,7 +335,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     for epoch in range(train_epochs):
 
         # prune step
-        for prune_epoch in range(20):
+        for prune_epoch in range(1):
 	        #Train
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
@@ -378,7 +378,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     param.grad.data = torch.mul(param.grad.data, term_mask_map[term_name])
           
                 #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
-                optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=1, reg_decay=0.001, lr=0.001, lip=0.001)
+                optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=300, reg_decay=0.001, lr=0.001, lip=0.001)
                 #optimizer.step()
                 print("Prune %d: total loss %f" % (i,total_loss.item()))
             del total_loss, cuda_cell_features, cuda_drug_features
@@ -400,18 +400,20 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 if "direct" in name:
                     # mutation side
                     # l0 for direct edge from gene to term
-                    mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
-                    handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
+                    #mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
+                    #handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
+                    handle = param.register_hook(lambda grad: grad.mul_(torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))))
                     handle_list.append(handle)
                 if "GO_linear_layer" in name:
                     # group lasso for
-                    mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
-                    handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
+                    #mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
+                    #handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
+                    handle = param.register_hook(lambda grad: grad.mul_(torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))))
                     handle_list.append(handle)
                     
          
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
-        for retain_epoch in range(20):
+        for retain_epoch in range(2):
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
 
@@ -452,10 +454,10 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 check_network(model, dGc, root)
             del total_loss, cuda_cell_features, cuda_drug_features
             del aux_out_map, inputdata, labels
-            torch.cuda.empty_cache()
             # remove hooks
             for handle in handle_list:
                 handle.remove()
+            torch.cuda.empty_cache()
             #optimizer.zero_grad()
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
