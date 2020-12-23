@@ -316,7 +316,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     for epoch in range(train_epochs):
 
         # prune step
-        for prune_epoch in range(1):
+        for prune_epoch in range(20):
 	        #Train
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
@@ -392,7 +392,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     
          
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
-        for retain_epoch in range(1):
+        for retain_epoch in range(20):
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
 
@@ -436,7 +436,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             # remove hooks
             for handle in handle_list:
                 handle.remove()
-            optimizer.zero_grad() 
+            optimizer.zero_grad()
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
