@@ -226,7 +226,6 @@ def retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim
     return model
     
 def grad_hook_masking(grad, mask):
-    handle.remove()
     return grad.mul_(mask)
 
 # train a DrugCell model 
@@ -376,6 +375,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         # retraining step
         #retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID, learning_rate)
         # masking
+        handle_list = list()
         with torch.no_grad():
             for name, param in model.named_parameters():
                 if "direct" in name:
@@ -383,10 +383,12 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     # l0 for direct edge from gene to term
                     mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
                     handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
+                    handle_list.append(handle)
                 if "GO_linear_layer" in name:
                     # group lasso for
                     mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
                     handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
+                    handle_list.append(handle)
                     
          
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
@@ -431,6 +433,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             del total_loss, cuda_cell_features, cuda_drug_features
             del aux_out_map, inputdata, labels
             torch.cuda.empty_cache()
+            # remove hooks
+            for handle in handle_list:
+                handle.remove()
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
