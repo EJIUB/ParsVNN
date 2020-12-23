@@ -366,7 +366,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             train_corr = spearman_corr(train_predict, train_label_gpu)
             prune_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
             print(">>>>>%d epoch run Pruning step %d: model train acc %f test acc %f" % (epoch, prune_epoch, train_corr, prune_test_corr))
-        
+            del train_predict, prune_test_corr
         
         
         # retraining step
@@ -435,6 +435,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 best_model = model.state_dict()
                 
             model.load_state_dict(best_model)
+            del best_model
             
 
         
