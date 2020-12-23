@@ -343,9 +343,6 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             for i, (inputdata, labels) in enumerate(train_loader):
                 cuda_labels = torch.autograd.Variable(labels.cuda(CUDA_ID))
                 
-                if i >= 2:
-                    break
-
 	            # Forward + Backward + Optimize
                 optimizer.zero_grad()  # zero the gradient buffer
 
