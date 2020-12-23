@@ -396,6 +396,8 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         # retraining step
         #retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID, learning_rate)
         # masking
+        print("check network before masking:")
+        check_network(model, dGc, root)
         handle_list = list()
         with torch.no_grad():
             for name, param in model.named_parameters():
@@ -418,6 +420,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         for retain_epoch in range(2):
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
+            
+            print("check network before retrain:")
+            check_network(model, dGc, root)
 
             best_acc = [0]
             for i, (inputdata, labels) in enumerate(train_loader):
