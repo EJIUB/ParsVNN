@@ -379,6 +379,8 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
           
                 #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
                 optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=300, reg_decay=0.001, lr=0.001, lip=0.001)
+                print("check network:")
+                check_network(model, dGc, root)
                 #optimizer.step()
                 print("Prune %d: total loss %f" % (i,total_loss.item()))
             del total_loss, cuda_cell_features, cuda_drug_features
