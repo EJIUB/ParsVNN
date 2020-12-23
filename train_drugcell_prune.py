@@ -99,7 +99,7 @@ def optimize_palm(model, dG, root, reg_l0, reg_glasso, reg_decay, lr=0.001, lip=
     del direct_input, direct_input_grad, direct_input_tmp, direct_input_update
     
 # check network statisics
-def check_network(model, dG, root,):
+def check_network(model, dG, root,]):
     dG_prune = dG.copy()
     for name, param in model.named_parameters():
         if "GO_linear_layer" in name:
@@ -116,6 +116,17 @@ def check_network(model, dG, root,):
     print("Original graph has %d nodes and %d edges" % (dG.number_of_nodes(), dG.number_of_edges()))
     sub_dG_prune = dG_prune.subgraph(nx.shortest_path(dG_prune.to_undirected(),root))
     print("Pruned   graph has %d nodes and %d edges" % (sub_dG_prune.number_of_nodes(), sub_dG_prune.number_of_edges()))
+    
+def check_parameter(model, CUDA_ID):
+    count = torch.zeros(0,0).cuda(CUDA_ID)
+    for name, param in model.named_parameters():
+        if "GO_linear_layer" in name:
+            print(name)
+            print(param.data)
+            count = count + 1
+            if count >= 10:
+                break
+
         
 
 def training_acc(model, optimizer, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID):
@@ -414,6 +425,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     #handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
                     handle = param.register_hook(lambda grad: grad.mul_(torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))))
                     handle_list.append(handle)
+        torch.cuda.empty_cache()
         
         print("check network after masking:")
         check_network(model, dGc, root)
@@ -469,7 +481,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             
                 print("@check network before step:")
                 check_network(model, dGc, root)
+                check_parameter(model, CUDA_ID)
                 optimizer.step()
+                check_parameter(model, CUDA_ID)
                 print("@check network after step:")
                 check_network(model, dGc, root)
                 print("Retrain %d: total loss %f" % (i, total_loss.item()))
