@@ -342,6 +342,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
 
             for i, (inputdata, labels) in enumerate(train_loader):
                 cuda_labels = torch.autograd.Variable(labels.cuda(CUDA_ID))
+                
+                if i >= 2:
+                    break
 
 	            # Forward + Backward + Optimize
                 optimizer.zero_grad()  # zero the gradient buffer
@@ -467,9 +470,13 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 #print("Retrain %d: total loss %f" % (i, total_loss.item()))
                 total_loss.backward()
             
-                optimizer.step()
-                print("Retrain %d: total loss %f" % (i, total_loss.item()))
+                print("@check network before step:")
                 check_network(model, dGc, root)
+                optimizer.step()
+                print("@check network after step:")
+                check_network(model, dGc, root)
+                print("Retrain %d: total loss %f" % (i, total_loss.item()))
+                
             del total_loss, cuda_cell_features, cuda_drug_features
             del aux_out_map, inputdata, labels
             # remove hooks
@@ -485,10 +492,10 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             if retrain_test_corr > best_acc[-1]:
                 best_acc.append(retrain_test_corr)
                 #torch.save(model.state_dict(), model_save_folder + 'prune_final/drugcell_retrain_lung_best'+str(epoch)+'_'+str(retain_epoch)+'.pkl')
-                best_model = model.state_dict()
+                best_model_para = model.state_dict()
                 
-            model.load_state_dict(best_model)
-            del best_model
+            model.load_state_dict(best_model_para)
+            del best_model_para
             
 
         
