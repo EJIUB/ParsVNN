@@ -414,7 +414,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     #handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
                     handle = param.register_hook(lambda grad: grad.mul_(torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))))
                     handle_list.append(handle)
-                    
+        
+        print("check network after masking:")
+        check_network(model, dGc, root)
          
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
         for retain_epoch in range(2):
