@@ -348,7 +348,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     for epoch in range(train_epochs):
 
         # prune step
-        for prune_epoch in range(20):
+        for prune_epoch in range(10):
 	        #Train
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
@@ -437,7 +437,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         #print("check network after optimizer:")
         #check_network(model, dGc, root)
         
-        for retain_epoch in range(20):
+        for retain_epoch in range(10):
         
             #print("check network before train:")
             #check_network(model, dGc, root)
@@ -498,14 +498,6 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
             print(">>>>>%d epoch Retraining step %d: model training acc %f test acc %f" % (epoch, retain_epoch, train_corr, retrain_test_corr))
             
-        # remove hooks
-        for handle in handle_list:
-            handle.remove()
-        torch.cuda.empty_cache()
-        #optimizer.zero_grad()
-
-            
-            
             if retrain_test_corr > best_acc:
                 best_acc = retrain_test_corr
                 #best_acc.append(retrain_test_corr)
@@ -514,6 +506,16 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 
             model.load_state_dict(best_model_para)
             del best_model_para
+            
+        # remove hooks
+        #for handle in handle_list:
+        #    handle.remove()
+        #torch.cuda.empty_cache()
+        #optimizer.zero_grad()
+
+            
+            
+            
             
 
         
