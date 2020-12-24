@@ -498,20 +498,19 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
             print(">>>>>%d epoch Retraining step %d: model training acc %f test acc %f" % (epoch, retain_epoch, train_corr, retrain_test_corr))
             
-            if retrain_test_corr > best_acc:
-                best_acc = retrain_test_corr
+            #if retrain_test_corr > best_acc:
+            #    best_acc = retrain_test_corr
                 #best_acc.append(retrain_test_corr)
                 #torch.save(model.state_dict(), model_save_folder + 'prune_final/drugcell_retrain_lung_best'+str(epoch)+'_'+str(retain_epoch)+'.pkl')
-                best_model_para = model.state_dict()
+            #    best_model_para = model.state_dict()
                 
-            model.load_state_dict(best_model_para)
-            del best_model_para
+            #model.load_state_dict(best_model_para)
+            #del best_model_para
             
         # remove hooks
-        #for handle in handle_list:
-        #    handle.remove()
-        #torch.cuda.empty_cache()
-        #optimizer.zero_grad()
+        for handle in handle_list:
+            handle.remove()
+        torch.cuda.empty_cache()
 
             
             
