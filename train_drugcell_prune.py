@@ -492,11 +492,12 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                 
             del total_loss, cuda_cell_features, cuda_drug_features
             del aux_out_map, inputdata, labels
-            # remove hooks
-            for handle in handle_list:
-                handle.remove()
             torch.cuda.empty_cache()
-            #optimizer.zero_grad()
+        # remove hooks
+        for handle in handle_list:
+            handle.remove()
+        torch.cuda.empty_cache()
+        #optimizer.zero_grad()
 
             train_corr = spearman_corr(train_predict, train_label_gpu)
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
