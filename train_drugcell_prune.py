@@ -348,7 +348,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
     for epoch in range(train_epochs):
 
         # prune step
-        for prune_epoch in range(1):
+        for prune_epoch in range(20):
 	        #Train
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
@@ -391,7 +391,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     param.grad.data = torch.mul(param.grad.data, term_mask_map[term_name])
           
                 #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
-                optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=300, reg_decay=0.001, lr=0.001, lip=0.001)
+                optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=1, reg_decay=0.001, lr=0.001, lip=0.001)
                 print("check network:")
                 check_network(model, dGc, root)
                 #optimizer.step()
@@ -429,27 +429,27 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     handle_list.append(handle)
         torch.cuda.empty_cache()
         
-        print("check network after masking:")
-        check_network(model, dGc, root)
+        #print("check network after masking:")
+        #check_network(model, dGc, root)
          
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=1e-05)
         
-        print("check network after optimizer:")
-        check_network(model, dGc, root)
+        #print("check network after optimizer:")
+        #check_network(model, dGc, root)
         
-        for retain_epoch in range(2):
+        for retain_epoch in range(20):
         
-            print("check network before train:")
-            check_network(model, dGc, root)
+            #print("check network before train:")
+            #check_network(model, dGc, root)
             
             
             model.train()
             train_predict = torch.zeros(0,0).cuda(CUDA_ID)
             
-            print("check network before retrain:")
-            check_network(model, dGc, root)
+            #print("check network before retrain:")
+            #check_network(model, dGc, root)
 
-            best_acc = [0]
+            best_acc = torch.tensor([0]).cuda(CUDA_ID)
             for i, (inputdata, labels) in enumerate(train_loader):
                 cuda_labels = torch.autograd.Variable(labels.cuda(CUDA_ID))
 
@@ -483,9 +483,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             
                 print("@check network before step:")
                 check_network(model, dGc, root)
-                check_parameter(model, CUDA_ID)
+                #check_parameter(model, CUDA_ID)
                 optimizer.step()
-                check_parameter(model, CUDA_ID)
+                #check_parameter(model, CUDA_ID)
                 print("@check network after step:")
                 check_network(model, dGc, root)
                 print("Retrain %d: total loss %f" % (i, total_loss.item()))
@@ -502,8 +502,9 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
             print(">>>>>%d epoch Retraining step %d: model training acc %f test acc %f" % (epoch, retain_epoch, train_corr, retrain_test_corr))
             
-            if retrain_test_corr > best_acc[-1]:
-                best_acc.append(retrain_test_corr)
+            if retrain_test_corr > best_acc:
+                best_acc = retrain_test_corr
+                #best_acc.append(retrain_test_corr)
                 #torch.save(model.state_dict(), model_save_folder + 'prune_final/drugcell_retrain_lung_best'+str(epoch)+'_'+str(retain_epoch)+'.pkl')
                 best_model_para = model.state_dict()
                 
