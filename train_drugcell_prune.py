@@ -409,6 +409,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         # retraining step
         #retrain(model, train_loader, train_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID, learning_rate)
         # masking
+        '''
         print("check network before masking:")
         check_network(model, dGc, root)
         handle_list = list()
@@ -428,6 +429,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     #handle = param.register_hook(lambda grad: grad.mul_(torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))))
                     handle_list.append(handle)
         torch.cuda.empty_cache()
+        '''
         
         #print("check network after masking:")
         #check_network(model, dGc, root)
@@ -441,6 +443,26 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
         
             #print("check network before train:")
             #check_network(model, dGc, root)
+            
+            print("check network before masking:")
+            check_network(model, dGc, root)
+            # add hooks
+            handle_list = list()
+            with torch.no_grad():
+                for name, param in model.named_parameters():
+                    if "direct" in name:
+                        # mutation side
+                        # l0 for direct edge from gene to term
+                        mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
+                        handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
+                        #handle = param.register_hook(lambda grad: grad.mul_(torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))))
+                        handle_list.append(handle)
+                    if "GO_linear_layer" in name:
+                        # group lasso for
+                        mask = torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))
+                        handle = param.register_hook(lambda grad, mask=mask: grad_hook_masking(grad, mask))
+                        #handle = param.register_hook(lambda grad: grad.mul_(torch.where(param.data.detach()!=0, torch.ones_like(param.data.detach()), torch.zeros_like(param.data.detach()))))
+                        handle_list.append(handle)
             
             
             model.train()
@@ -494,6 +516,11 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             del aux_out_map, inputdata, labels
             torch.cuda.empty_cache()
             
+            # remove hooks
+            for handle in handle_list:
+                handle.remove()
+            torch.cuda.empty_cache()
+            
             train_corr = spearman_corr(train_predict, train_label_gpu)
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
             print(">>>>>%d epoch Retraining step %d: model training acc %f test acc %f" % (epoch, retain_epoch, train_corr, retrain_test_corr))
@@ -507,10 +534,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             #model.load_state_dict(best_model_para)
             #del best_model_para
             
-        # remove hooks
-        for handle in handle_list:
-            handle.remove()
-        torch.cuda.empty_cache()
+        
 
             
             
