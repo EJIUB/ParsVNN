@@ -188,6 +188,7 @@ def test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim,
 
     test_corr = spearman_corr(test_predict, test_label_gpu)
     del aux_out_map, inputdata, labels, test_predict, cuda_cell_features, cuda_drug_features
+    torch.cuda.empty_cache()
     
     #print("pretrained model %f test acc" % (test_corr))
     return test_corr
@@ -391,7 +392,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     param.grad.data = torch.mul(param.grad.data, term_mask_map[term_name])
           
                 #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
-                optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=1, reg_decay=0.001, lr=0.001, lip=0.001)
+                optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=0.1, reg_decay=0.001, lr=0.001, lip=0.001)
                 print("check network:")
                 check_network(model, dGc, root)
                 #optimizer.step()
@@ -404,6 +405,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             prune_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
             print(">>>>>%d epoch run Pruning step %d: model train acc %f test acc %f" % (epoch, prune_epoch, train_corr, prune_test_corr))
             del train_predict, prune_test_corr
+            torch.cuda.empty_cache()
         
 
         # retraining step
