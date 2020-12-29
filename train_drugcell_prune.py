@@ -397,7 +397,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
                     param.grad.data = torch.mul(param.grad.data, term_mask_map[term_name])
           
                 #print("Original graph has %d nodes and %d edges" % (dGc.number_of_nodes(), dGc.number_of_edges()))
-                optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=0.1, reg_decay=0.001, lr=0.001, lip=0.001)
+                optimize_palm(model, dGc, root, reg_l0=0.001, reg_glasso=0.5, reg_decay=0.001, lr=0.001, lip=0.001)
                 print("check network:")
                 check_network(model, dGc, root)
                 #optimizer.step()
@@ -533,7 +533,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             print(">>>>>%d epoch Retraining step %d: model training acc %f test acc %f" % (epoch, retain_epoch, train_corr, retrain_test_corr))
             
             # save models
-            if epoch > 100:
+            if epoch > 30:
                 NumNode_left, NumEdge_left = check_network(model, dGc, root)
                 torch.save(model.state_dict(), model_save_folder + 'prune_final/drugcell_retrain_lung_gl_0.5_epoch_'+str(epoch)+'_trainacc_'+str(train_corr)+'_testacc_'+str(retrain_test_corr)+'_nodeleft_'+str(NumNode_left)+'_edgeleft_'+str(NumEdge_left)+'.pkl')
             
