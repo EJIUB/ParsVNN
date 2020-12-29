@@ -117,6 +117,11 @@ def check_network(model, dG, root):
     sub_dG_prune = dG_prune.subgraph(nx.shortest_path(dG_prune.to_undirected(),root))
     print("Pruned   graph has %d nodes and %d edges" % (sub_dG_prune.number_of_nodes(), sub_dG_prune.number_of_edges()))
     
+    num_node = sub_dG_prune.number_of_nodes()
+    num_edge = sub_dG_prune.number_of_edges()
+    
+    return num_node, num_edge
+    
 def check_parameter(model, CUDA_ID):
     count = torch.tensor([0]).cuda(CUDA_ID)
     for name, param in model.named_parameters():
@@ -527,6 +532,11 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             retrain_test_corr = test_acc(model, test_loader, test_label_gpu, gene_dim, cuda_cells, drug_dim, cuda_drugs, CUDA_ID)
             print(">>>>>%d epoch Retraining step %d: model training acc %f test acc %f" % (epoch, retain_epoch, train_corr, retrain_test_corr))
             
+            # save models
+            if epoch > 100:
+                NumNode_left, NumEdge_left = check_network(model, dGc, root)
+                torch.save(model.state_dict(), model_save_folder + 'prune_final/drugcell_retrain_lung_gl_0.5_epoch_'+str(epoch)+'_trainacc_'+str(train_corr)+'_testacc_'+str(retrain_test_corr)+'_nodeleft_'+str(NumNode_left)+'_edgeleft_'+str(NumEdge_left)+'.pkl')
+            
             #if retrain_test_corr > best_acc:
             #    best_acc = retrain_test_corr
                 #best_acc.append(retrain_test_corr)
@@ -536,7 +546,7 @@ def train_model(pretrained_model, root, term_size_map, term_direct_gene_map, dG,
             #model.load_state_dict(best_model_para)
             #del best_model_para
             
-        
+    
 
             
             
