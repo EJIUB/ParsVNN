@@ -1,1 +1,2 @@
-# DrugCell_Prune
+# ParsVNN
+A sprase learning algorithm for building parsimony VNN models.
