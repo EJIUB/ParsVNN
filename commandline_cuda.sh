@@ -1,13 +1,13 @@
 #!/bin/bash
-codedir="/home/yijwang/Drugcell_GCN_NN/DrugCell_Prune/DrugCell_Prune/"
-inputdir="/home/yijwang/Drugcell_GCN_NN/data"
-ontfile="/home/yijwang/Drugcell_GCN_NN/data/go_bp_drugcell_min10_merge30_depth5_ontology.txt"
-gene2idfile="/home/yijwang/Drugcell_GCN_NN/data/cell_mutations_bp_gene2id.txt"
-drug2idfile="/home/yijwang/Drugcell_GCN_NN/data/drug_fingerprints_drug2id.txt"
-cell2idfile="/home/yijwang/Drugcell_GCN_NN/data/cell_mutations_cell2id.txt"
-celllinefile="/home/yijwang/Drugcell_GCN_NN/data/cell_mutations_bp_matrix.txt"
-drugfile="/home/yijwang/Drugcell_GCN_NN/data/drug_fingerprints_matrix.txt"
-modeldir="/home/yijwang/Drugcell_GCN_NN/MODEL/"
+codedir="./"
+inputdir="./data"
+ontfile="./data/go_bp_drugcell_min10_merge30_depth5_ontology.txt"
+gene2idfile="./data/cell_mutations_bp_gene2id.txt"
+drug2idfile="./data/drug_fingerprints_drug2id.txt"
+cell2idfile="./data/cell_mutations_cell2id.txt"
+celllinefile="./data/cell_mutations_bp_matrix.txt"
+drugfile="./data/drug_fingerprints_matrix.txt"
+modeldir="./MODEL/"
 
 #foldid=$1
 cudaid=$1
